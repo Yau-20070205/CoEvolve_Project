@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoEvolve:构建-编辑式视觉定位与双向状态精修 — 项目主页</title>
+<meta name="description" content="CoEvolve 将视觉定位拆解为显式状态构建(RER)与双向状态编辑(BDR),9B 骨干比肩 241B 模型。西安交通大学与中国科学院空天信息创新研究院合作工作。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' rx='18' fill='%233b5bdb'/><rect x='28' y='28' width='44' height='44' rx='8' fill='none' stroke='white' stroke-width='6' stroke-dasharray='10 7'/></svg>">
+<style>
+  :root{
+    --ink:#1f2328;
+    --ink2:#4d545e;
+    --ink3:#878e99;
+    --line:#e4e7ec;
+    --brand:#3b5bdb;
+    --brand-soft:#f2f5ff;
+    --soft:#f6f7f9;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","Noto Sans SC","Microsoft YaHei",sans-serif;
+    color:var(--ink);background:#fff;line-height:1.8;
+    -webkit-font-smoothing:antialiased;
+  }
+  .container{max-width:940px;margin:0 auto;padding:0 22px}
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .lang{position:absolute;top:20px;right:24px;font-size:14px;z-index:10}
+  .lang a{color:var(--ink3);padding:0 2px}
+  .lang a.on{color:var(--brand);font-weight:650}
+
+  header{position:relative;text-align:center;padding:72px 0 6px}
+  h1{
+    font-size:clamp(25px,3.4vw,33px);line-height:1.35;font-weight:750;
+    letter-spacing:-.01em;margin:0 auto 8px;max-width:32ch;
+  }
+  .orig-title{font-size:14px;color:var(--ink3);margin-bottom:18px}
+  .authors{font-size:16.5px}
+  .authors sup{color:var(--brand);font-weight:700;font-size:11px}
+  .affil{font-size:14.5px;color:var(--ink2);margin-top:3px}
+  .auth-note{font-size:13px;color:var(--ink3);margin-top:8px}
+  .buttons{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+  .btn{
+    display:inline-flex;align-items:center;gap:7px;
+    border:1px solid var(--line);border-radius:10px;background:#fff;
+    padding:8px 16px;font-size:14.5px;font-weight:600;color:var(--ink);
+    transition:border-color .12s;
+  }
+  .btn:hover{text-decoration:none;border-color:#b9c0cc}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:#3452c4}
+  .btn.soon{color:var(--ink3);border-style:dashed;cursor:default}
+  .btn.soon:hover{border-color:var(--line)}
+
+  section{padding:40px 0 4px}
+  h2{
+    text-align:center;font-size:21px;font-weight:700;letter-spacing:-.01em;
+    margin-bottom:18px;
+  }
+  .body-text{font-size:15.5px;color:var(--ink2)}
+  .body-text+.body-text{margin-top:12px}
+  .body-text b{color:var(--ink);font-weight:650}
+  .tldr{
+    background:var(--soft);border-radius:12px;padding:16px 20px;
+    font-size:15.5px;color:var(--ink2);
+  }
+  .tldr b{color:var(--ink)}
+
+  figure{margin:24px 0 8px}
+  figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px}
+  figcaption{font-size:13.5px;color:var(--ink3);line-height:1.7;margin-top:10px}
+  figcaption b{color:var(--ink2);font-weight:650}
+
+  /* demo */
+  .demo-tabs{display:flex;gap:8px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+  .demo-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 16px;font-size:14px;font-weight:600;color:var(--ink2);cursor:pointer}
+  .demo-tab:hover{border-color:#b9c0cc}
+  .demo-tab.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .demo-panel{display:none}
+  .demo-panel.active{display:block}
+  .demo-stage{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+  .demo-img-wrap{position:relative;flex:1 1 380px;min-width:280px}
+  .demo-img-wrap img{width:100%;display:block;border:1px solid var(--line);border-radius:10px}
+  .dbox{position:absolute;border:2.5px solid #d97706;border-radius:3px;pointer-events:none;opacity:0;transition:all .55s cubic-bezier(.4,0,.2,1)}
+  .dbox.show{opacity:1}
+  .dbox.gt{border:2px dashed #16a34a;background:rgba(22,163,74,.06)}
+  .dbox.answer{border-color:#ea580c;background:rgba(234,88,12,.08)}
+  .dbox.edit{border-color:var(--brand);background:rgba(59,91,219,.10)}
+  .dbox.bad{border-color:#dc2626;background:rgba(220,38,38,.08)}
+  .dbox .lbl{position:absolute;top:-22px;left:-2px;font-size:11px;font-weight:700;background:#fff;padding:0 6px;border-radius:4px;line-height:18px;white-space:nowrap;color:var(--ink2)}
+  .demo-side{flex:1 1 300px;min-width:280px}
+  .demo-log{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-height:150px;max-height:230px;overflow-y:auto;font-size:13.5px;line-height:1.7}
+  .demo-log .ln{padding:2px 0;color:var(--ink2);animation:dfade .35s ease}
+  .demo-log .ln b{color:var(--ink)}
+  @keyframes dfade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .demo-iou{display:none;margin-top:10px;font-size:13px;font-weight:700;padding:4px 12px;border-radius:8px;background:var(--brand-soft);color:var(--brand)}
+  .demo-iou.good{background:#dcfce7;color:#15803d}
+  .demo-iou.bad{background:#fee2e2;color:#dc2626}
+  .demo-ctrl{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .dbtn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 13px;font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer}
+  .dbtn:hover{border-color:#b9c0cc}
+  .dbtn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .dbtn.primary:hover{background:#3452c4}
+  .demo-step{font-size:12.5px;color:var(--ink3);margin-left:2px}
+  .tokrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px}
+  .tok{border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink2);background:#fff;transition:all .3s}
+  .tok.fixed{background:var(--soft);color:var(--ink3)}
+  .tok.coord{color:var(--brand);border-color:#c6d0f5;font-weight:600}
+  .tok.corrupt{color:#dc2626;border-color:#f3b4b4;background:#fef2f2;text-decoration:line-through}
+  .tok.fixed-now{background:#dcfce7;border-color:#9fd9c3;color:#15803d;font-weight:700}
+  .attn{font-size:12.5px;color:var(--brand);min-height:18px;margin-bottom:8px}
+
+  .tbl-cap{font-weight:650;font-size:14.5px;margin:28px 0 10px;color:var(--ink)}
+  .tbl-cap small{display:block;font-weight:450;color:var(--ink3);font-size:12.5px;margin-top:2px}
+  #results .tbl-cap:first-of-type{margin-top:0}
+  .tbl-wrap{overflow-x:auto;border-radius:10px}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:440px}
+  thead tr{border-top:2px solid var(--ink);border-bottom:1px solid var(--ink)}
+  tbody tr:last-child{border-bottom:2px solid var(--ink)}
+  tbody tr:not(:last-child){border-bottom:1px solid var(--line)}
+  th,td{padding:8px 12px;text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{font-weight:650}
+  td.params{color:var(--ink3)}
+  tr.ours td{font-weight:700;background:var(--brand-soft)}
+  .foot-note{font-size:13px;color:var(--ink3);margin-top:10px}
+
+  .bib-head{display:flex;justify-content:flex-end;margin-bottom:10px}
+  .copy-btn{
+    border:1px solid var(--line);border-radius:8px;background:#fff;
+    padding:5px 14px;font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;
+  }
+  .copy-btn:hover{border-color:#b9c0cc}
+  .copy-btn.done{color:#0e9f6e;border-color:#9fd9c3}
+  pre.code{
+    background:var(--soft);border:1px solid var(--line);border-radius:10px;
+    padding:18px 22px;font-size:13.5px;line-height:1.7;overflow-x:auto;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    color:#333a44;
+  }
+
+  footer{
+    border-top:1px solid var(--line);margin-top:56px;padding:24px 0 48px;
+    font-size:13.5px;color:var(--ink3);
+  }
+  .foot-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between}
+</style>
+</head>
+<body>
+<span class="lang"><a href="index.html">English</a> · <a class="on" href="zh.html">中文</a></span>
+
+<header>
+  <div class="container">
+    <h1>CoEvolve:构建‑编辑式视觉定位与双向状态精修</h1>
+    <p class="orig-title">CoEvolve: Construct-to-Edit Visual Grounding with Bidirectional State Refinement</p>
+    <p class="authors">Dongwei Sun<sup>†</sup>, Yujie Zhang<sup>†</sup>, Bowen Yao, Pei Liu, Jing Yao, Xiangyong Cao<sup>*</sup></p>
+    <p class="affil">西安交通大学 计算机科学与技术学院</p>
+    <p class="affil">中国科学院空天信息创新研究院</p>
+    <p class="auth-note">† 共同第一作者 · * 通讯作者 · arXiv:2610.01710</p>
+    <div class="buttons">
+      <a class="btn primary" href="https://arxiv.org/abs/2610.01710" target="_blank" rel="noopener">arXiv</a>
+      <a class="btn" href="https://arxiv.org/pdf/2610.01710" target="_blank" rel="noopener">PDF</a>
+      <a class="btn" href="https://arxiv.org/html/2610.01710v1" target="_blank" rel="noopener">HTML</a>
+          <a class="btn" href="https://sundongwei.github.io/CoEvolve_Project/" target="_blank" rel="noopener">代码</a>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <p class="tldr"><b>一句话:</b> CoEvolve 将定位分为两个阶段:RER 构建显式的、由粗到细的空间轨迹,每一步都提交
+  一个候选区域;BDR 再对该状态的坐标 token 做同位置双向重建。9B 模型的定位精度与 241B 规模的模型相当。</p>
+
+  <section id="demo">
+    <h2>交互演示</h2>
+    <div class="demo-tabs">
+      <button class="demo-tab active" data-demo="inf">① 推理 — RER → BDR</button>
+      <button class="demo-tab" data-demo="trn">② 训练 — 破坏 → 修复</button>
+    </div>
+
+    <div class="demo-panel active" id="demo-inf">
+      <div class="demo-stage">
+        <div class="demo-img-wrap">
+          <img src="assets/demo_image.png" alt="论文实例所用的餐盘照片">
+          <div class="dbox gt show" id="inf-gt" style="left:81.5%;top:2%;width:18.5%;height:40%"><span class="lbl" style="color:#15803d">GT</span></div>
+          <div class="dbox" id="inf-box"><span class="lbl" id="inf-lbl"></span></div>
+        </div>
+        <div class="demo-side">
+          <div class="demo-log" id="inf-log"></div>
+          <div><span class="demo-iou" id="inf-iou">IoU —</span></div>
+          <div class="demo-ctrl">
+            <button class="dbtn primary" id="inf-play">▶ 播放</button>
+            <button class="dbtn" id="inf-prev">‹ 上一步</button>
+            <button class="dbtn" id="inf-next">下一步 ›</button>
+            <span class="demo-step" id="inf-step"></span>
+          </div>
+        </div>
+      </div>
+      <p class="foot-note" style="margin-top:14px">数据取自论文真实实例(Figure 10):查询 "broccoli on top right"、RER 的五步轨迹与两次 BDR 精修,坐标为论文的 [0, 1000] 归一化坐标系。</p>
+    </div>
+
+    <div class="demo-panel" id="demo-trn">
+      <div class="demo-stage">
+        <div class="demo-img-wrap">
+          <img src="assets/demo_image.png" alt="餐盘照片:框被破坏再被修复" loading="lazy">
+          <div class="dbox" id="trn-box"><span class="lbl" id="trn-lbl"></span></div>
+        </div>
+        <div class="demo-side">
+          <div class="tokrow" id="trn-tokens">
+            <span class="tok fixed">&lt;refine&gt; 推理文本(固定)</span>
+            <span class="tok coord" id="trn-t1">x₁=815</span>
+            <span class="tok coord" id="trn-t2">y₁=20</span>
+            <span class="tok coord" id="trn-t3">x₂=1000</span>
+            <span class="tok coord" id="trn-t4">y₂=420</span>
+          </div>
+          <div class="attn" id="trn-attn"></div>
+          <div class="demo-log" id="trn-log"></div>
+          <div><span class="demo-iou" id="trn-iou">IoU —</span></div>
+          <div class="demo-ctrl">
+            <button class="dbtn primary" id="trn-play">▶ 播放</button>
+            <button class="dbtn" id="trn-prev">‹ 上一步</button>
+            <button class="dbtn" id="trn-next">下一步 ›</button>
+            <span class="demo-step" id="trn-step"></span>
+          </div>
+        </div>
+      </div>
+      <p class="foot-note" style="margin-top:14px">BDR 的训练方式:先人为破坏坐标,精修器学习在因果掩码移除、全局上下文可见的条件下做同位置重建。在 30,969 个受控锚点上,mIoU 从 58.80 提升到 86.19。</p>
+    </div>
+  </section>
+
+    <section id="abstract">
+    <h2>摘要</h2>
+    <p class="body-text">视觉定位旨在用边界框框出语言所描述的对象。大多数多模态定位模型把"目标识别、空间推理、
+    边界估计"压缩成一次终端预测:自由格式的推理虽然让思考在语言上显式,却不一定暴露可度量、可编辑的空间状态。
+    于是中间步骤的定位错误难以诊断和修正:选错区域、边界不准都会一路带到最终的框里;自回归式的重新生成
+    也缺乏对既有状态做同步修复的显式机制。</p>
+    <p class="body-text">我们提出 <b>CoEvolve</b>,一个"构建‑编辑"式框架,把定位拆解为显式的<b>状态构建</b>与
+    <b>状态编辑</b>。<b>区域演化强化(RER)</b>把定位分析组织成由粗到细的"语义—空间"轨迹,每一步推理都提交一个
+    显式候选区域。<b>双向去噪精修器(BDR)</b>把这条轨迹当作可编辑状态:以固定响应为条件,通过同位置双向重建
+    同步产出新的定位候选;几何层与行为层监督教会 BDR <b>保留</b>准确锚点、<b>纠正</b>不可靠状态、<b>巩固</b>可靠改进。</p>
+    <p class="body-text">评测覆盖自然图像与遥感定位:CoEvolve 在 RefCOCO 系列测试划分上取得 85.72% mIoU,
+    经领域重训练后在 DIOR‑RSVG 上取得 76.23%;在受控框破坏实验中,BDR 将 mIoU 从 58.80% 提升至 86.19%。
+    状态来源对比进一步支持了"结构化状态构建 + 双向状态编辑"的互补性。</p>
+  </section>
+
+  <section id="overview">
+    <h2>CoEvolve 如何工作</h2>
+    <figure>
+      <img src="assets/pipeline.png" alt="CoEvolve 总览:(a) RER 构建逐步演化的区域轨迹;(b) BDR 原位编辑坐标 token">
+      <figcaption><b>方法总览。</b>(a)区域演化强化(RER)将定位分析组织为由粗到细的"语义—空间"轨迹,每一步
+      推理都提交一个显式候选区域(场景 → 候选 → 关系 → 收紧),并受格式奖励、渐进奖励与终端框奖励约束。
+      (b)双向去噪精修器(BDR)将完整响应(推理文本、各步框与最终答案)作为可编辑状态,通过同位置双向重建
+      原位改写坐标 token。几何层监督决定坐标的移动方向,行为层监督决定当前状态应被保留、纠正还是巩固。</figcaption>
+    </figure>
+    <p class="body-text">一次性的终端预测无法体现错误来自哪一步。CoEvolve 在每一步都写下空间状态,因此选错的区域
+    和偏松的边界在轨迹中清晰可见。BDR 可以直接修复已有状态,而不必重新生成整个响应,推理文本始终保持不变。</p>
+  </section>
+
+<section id="examples">
+    <h2>定性实例</h2>
+    <figure>
+      <img src="assets/qualitative_natural.png" alt="RefCOCO 系列定性结果:边界修正、密集实例修复、关系修正、高质量保持" loading="lazy">
+      <figcaption><b>自然图像(RefCOCO 系列)。</b>红色实线框为模型预测,绿色虚线框为标注,角标给出每个样本在
+      RER → BDR 第 1 次 → 第 2 次的 IoU。自上而下:边界修正(0.267 → 0.982)、密集实例修复(0.151 → 0.974)、
+      关系修正(0.176 → 0.992)、对已经准确的锚点予以保持(0.999)。</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/qualitative_remote.png" alt="DIOR-RSVG 定性结果:小目标修复、关系修正、范围修正、二次精修与失败案例" loading="lazy">
+      <figcaption><b>遥感图像(DIOR‑RSVG)。</b>小目标修复(0.000 → 1.000)、关系修正(0.011 → 0.987)、
+      范围修正(0.293 → 0.985)、经第二次 BDR 进一步收紧的边界(0.266 → 0.943);最后一行为失败案例:
+      精修偏离了原本准确的锚点。</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/trajectory_edit.png" alt="查询 broccoli on top right 的结构化 RER 轨迹与 BDR 坐标编辑矩阵" loading="lazy">
+      <figcaption><b>完整实例</b>("broccoli on top right")。左侧:五步 RER 轨迹及每步提交的区域;右侧:
+      同位置坐标编辑,推理文本保持不动,BDR 可更新任何一步与最终答案(琥珀色单元格表示相对上一状态的改动)。
+      答案 IoU 依次为 0.451 → 0.913 → 0.936。</figcaption>
+    </figure>
+  </section>
+
+  <section id="results">
+    <h2>实验结果</h2>
+    <p class="tbl-cap" style="margin-top:0">表 1 · RefCOCO 系列定位精度(Acc@0.5)
+      <small>CoEvolve 仅使用 RefCOCOg train 训练,不在目标评测集上微调;Overall 为全部八个划分的均值。‡ 骨干基线为本地复现。</small>
+    </p>
+    <div class="tbl-wrap">
+      <table style="min-width:760px">
+        <thead>
+          <tr>
+            <th rowspan="2">模型</th><th rowspan="2">参数量</th>
+            <th colspan="3" style="text-align:center">RefCOCO</th>
+            <th colspan="3" style="text-align:center">RefCOCO+</th>
+            <th colspan="2" style="text-align:center">RefCOCOg</th>
+            <th rowspan="2">Overall</th>
+          </tr>
+          <tr>
+            <th>val</th><th>testA</th><th>testB</th><th>val</th><th>testA</th><th>testB</th><th>val</th><th>test</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="ours"><td>CoEvolve(本文)</td><td class="params">9B</td><td>94.4</td><td>95.3</td><td>92.4</td><td>90.7</td><td>93.5</td><td>87.8</td><td>92.6</td><td>92.8</td><td>92.41</td></tr>
+          <tr><td>InternVL3.5-241B-A28B</td><td class="params">241B</td><td>94.1</td><td>96.3</td><td>91.5</td><td>91.6</td><td>94.6</td><td>86.9</td><td>92.0</td><td>92.1</td><td>92.39</td></tr>
+          <tr><td>DeepSeek-VL2-Small</td><td class="params">16B</td><td>93.9</td><td>95.3</td><td>91.3</td><td>89.4</td><td>92.9</td><td>84.8</td><td>92.6</td><td>92.6</td><td>91.60</td></tr>
+          <tr><td>InternVL3-78B</td><td class="params">78B</td><td>93.4</td><td>95.4</td><td>90.3</td><td>90.1</td><td>93.8</td><td>85.3</td><td>91.5</td><td>91.5</td><td>91.41</td></tr>
+          <tr><td>Qwen3-VL-235B-A22B</td><td class="params">235B</td><td>92.9</td><td>94.6</td><td>90.2</td><td>88.6</td><td>92.4</td><td>84.2</td><td>90.3</td><td>90.8</td><td>90.50</td></tr>
+          <tr><td>CogVLM-Grounding-17B</td><td class="params">17B</td><td>92.8</td><td>94.8</td><td>89.0</td><td>88.7</td><td>92.9</td><td>83.4</td><td>89.8</td><td>90.8</td><td>90.28</td></tr>
+          <tr><td>Qwen3.5-9B(骨干)‡</td><td class="params">9B</td><td>91.5</td><td>93.8</td><td>89.5</td><td>87.7</td><td>91.3</td><td>82.9</td><td>89.7</td><td>89.6</td><td>89.48</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="tbl-cap">表 2 · 五个测试划分上更严格 IoU 阈值的定位
+      <small>单元格为 Acc@0.7 / Acc@0.9;聚合列按样本加权。‡ 本地复现;† 由论文报告的规模分组结果重建。</small>
+    </p>
+    <div class="tbl-wrap">
+      <table style="min-width:700px">
+        <thead>
+          <tr>
+            <th rowspan="2">方法</th>
+            <th colspan="2" style="text-align:center">RefCOCO</th>
+            <th colspan="2" style="text-align:center">RefCOCO+</th>
+            <th rowspan="2">RefCOCOg test</th>
+            <th rowspan="2">mIoU</th><th rowspan="2">Acc@0.7</th><th rowspan="2">Acc@0.9</th>
+          </tr>
+          <tr><th>testA</th><th>testB</th><th>testA</th><th>testB</th></tr>
+        </thead>
+        <tbody>
+          <tr class="ours"><td>CoEvolve(本文)</td><td>92.7 / 74.2</td><td>87.1 / 67.8</td><td>90.7 / 73.1</td><td>82.3 / 64.7</td><td>86.9 / 65.2</td><td>85.72</td><td>87.94</td><td>68.64</td></tr>
+          <tr><td>CogVLM-Grounding-17B ‡</td><td>90.6 / 69.2</td><td>83.0 / 61.3</td><td>88.6 / 67.9</td><td>77.3 / 57.7</td><td>85.5 / 64.7</td><td>83.60</td><td>85.31</td><td>64.45</td></tr>
+          <tr><td>Qwen3-VL-8B ‡</td><td>88.8 / 66.3</td><td>81.1 / 58.4</td><td>86.4 / 64.9</td><td>74.8 / 54.0</td><td>83.0 / 61.7</td><td>82.39</td><td>83.09</td><td>61.35</td></tr>
+          <tr><td>Qwen3.5-9B ‡</td><td>88.7 / 65.9</td><td>81.7 / 58.6</td><td>86.4 / 64.5</td><td>75.6 / 54.3</td><td>83.1 / 59.6</td><td>82.16</td><td>83.31</td><td>60.64</td></tr>
+          <tr><td>Qwen3-VL-4B</td><td>88.6 / –</td><td>81.3 / –</td><td>86.0 / –</td><td>73.3 / –</td><td>82.2 / –</td><td>81.74</td><td>82.51</td><td>61.24</td></tr>
+          <tr><td>InternVL3.5-8B ‡</td><td>85.9 / 63.0</td><td>77.5 / 55.0</td><td>83.9 / 61.6</td><td>70.6 / 50.0</td><td>79.3 / 58.6</td><td>79.33</td><td>79.68</td><td>58.02</td></tr>
+          <tr><td>Hi-R1 †</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>79.97</td><td>80.07</td><td>54.84</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure style="margin-top:28px">
+      <img src="assets/correction.png" alt="30,969 个确定性锚点上的受控框纠正" loading="lazy">
+      <figcaption><b>受控框纠正</b>:在包含 30,969 个确定性锚点的五个测试划分上,相同破坏锚点输入下,训练得到的
+      BDR 比自回归纠正基线取得更强的纠正性能。</figcaption>
+    </figure>
+
+    <p class="tbl-cap">表 3 · 遥感定位 DIOR-RSVG
+      <small>RER 与 BDR 在 DIOR-RSVG 训练集上重训。† 我们复现的原生骨干,未做 DIOR-RSVG 适配。</small>
+    </p>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>方法</th><th>Pr@0.5</th><th>Pr@0.7</th><th>Pr@0.9</th><th>mIoU</th></tr>
+        </thead>
+        <tbody>
+          <tr class="ours"><td>CoEvolve(本文)</td><td>86.20</td><td>76.16</td><td>43.45</td><td>76.23</td></tr>
+          <tr><td>LQVG</td><td>83.41</td><td>75.91</td><td>43.53</td><td>74.02</td></tr>
+          <tr><td>GeoSearcher</td><td>83.20</td><td>72.40</td><td>–</td><td>73.50</td></tr>
+          <tr><td>LPVA</td><td>82.27</td><td>72.25</td><td>39.55</td><td>72.35</td></tr>
+          <tr><td>RSGround-R1</td><td>71.80</td><td>58.70</td><td>–</td><td>63.40</td></tr>
+          <tr><td>InternVL3.5-8B</td><td>64.90</td><td>50.50</td><td>–</td><td>56.90</td></tr>
+          <tr><td>Qwen3.5-9B †</td><td>55.85</td><td>43.15</td><td>18.81</td><td>51.83</td></tr>
+          <tr><td>Qwen3.5-4B</td><td>53.10</td><td>39.40</td><td>–</td><td>49.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="body-text" style="margin-top:16px">下游分割:用 CoEvolve 的框提示冻结 SAM3,在八个 RefCOCO 系列
+    划分上取得 78.19 Macro‑8 cIoU,未做掩码微调。</p>
+  </section>
+
+  <section id="bibtex">
+    <h2>BibTeX</h2>
+    <div class="bib-head"><button class="copy-btn" id="copy-btn" onclick="copyBib()">复制</button></div>
+    <pre class="code" id="bibtex-code">@article{sun2026coevolve,
+  title   = {CoEvolve: Construct-to-Edit Visual Grounding with
+             Bidirectional State Refinement},
+  author  = {Sun, Dongwei and Zhang, Yujie and Yao, Bowen and
+             Liu, Pei and Yao, Jing and Cao, Xiangyong},
+  journal = {arXiv preprint arXiv:2610.01710},
+  year    = {2026}
+}</pre>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container foot-row">
+    <div>CoEvolve · 西安交通大学 &amp; 中国科学院空天信息创新研究院</div>
+    <div><a href="https://arxiv.org/abs/2610.01710" target="_blank" rel="noopener">arXiv:2610.01710</a> · <a href="index.html">English</a></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  function makeDemo(cfg){
+    const $ = id => document.getElementById(id);
+    const box = $(cfg.box), lbl = $(cfg.lbl), log = $(cfg.log), iou = $(cfg.iou),
+          stepEl = $(cfg.step), play = $(cfg.play), prevB = $(cfg.prev), nextB = $(cfg.next);
+    const extra = cfg.extra || (()=>{});
+    let i = -1, timer = null;
+    function show(k){
+      i = Math.max(0, Math.min(k, cfg.steps.length - 1));
+      const s = cfg.steps[i];
+      if(s.box){
+        box.classList.add('show');
+        const [x1,y1,x2,y2] = s.box;
+        box.style.left = x1/10 + '%'; box.style.top = y1/10 + '%';
+        box.style.width = (x2-x1)/10 + '%'; box.style.height = (y2-y1)/10 + '%';
+        box.style.borderColor = s.color || '';
+        box.style.background = s.bg || '';
+      } else { box.classList.remove('show'); }
+      lbl.textContent = s.lbl || '';
+      extra(s, i);
+      while(log.children.length > i + 1) log.removeChild(log.lastChild);
+      while(log.children.length < i + 1){
+        const d = document.createElement('div');
+        d.className = 'ln'; d.innerHTML = cfg.steps[log.children.length].log;
+        log.appendChild(d);
+      }
+      log.scrollTop = log.scrollHeight;
+      if(s.iou){ iou.style.display = 'inline-block'; iou.textContent = 'IoU ' + s.iou; iou.className = 'demo-iou ' + (s.iouState || ''); }
+      else { iou.style.display = 'none'; }
+      stepEl.textContent = (i + 1) + ' / ' + cfg.steps.length;
+    }
+    function stop(){ if(timer){ clearInterval(timer); timer = null; play.textContent = cfg.labels.play; } }
+    function start(){
+      stop();
+      if(i >= cfg.steps.length - 1) show(0);
+      timer = setInterval(()=>{
+        show((i + 1) % cfg.steps.length);
+      }, cfg.delay || 2100);
+      play.textContent = cfg.labels.pause;
+    }
+    play.addEventListener('click', ()=> timer ? stop() : start());
+    prevB.addEventListener('click', ()=>{ stop(); show(i - 1); });
+    nextB.addEventListener('click', ()=>{ stop(); show(i + 1); });
+    show(0);
+    if(cfg.autostart) start();
+    return { stop, start };
+  }
+
+  const demos = {};
+  demos.inf = makeDemo({
+    box:'inf-box', lbl:'inf-lbl', log:'inf-log', iou:'inf-iou', step:'inf-step',
+    play:'inf-play', prev:'inf-prev', next:'inf-next', delay:2100, autostart:true,
+    labels:{play:'▶ 播放', pause:'⏸ 暂停'},
+    steps:[
+      {log:'<b>查询:</b>"broccoli on top right"(右上角的西兰花)。绿色虚线框 = 真值标注 [815, 20, 1000, 420]。'},
+      {box:[0,0,1000,1000], lbl:'第 1 步', log:'<b>第 1 步 · 场景</b> — 盘中有食物:左侧是肉,右侧是蔬菜 → [0, 0, 1000, 1000]。'},
+      {box:[600,25,1000,650], lbl:'第 2 步', log:'<b>第 2 步 · 候选</b> — 聚焦右侧的绿色蔬菜区域 → [600, 25, 1000, 650]。'},
+      {box:[600,25,1000,450], lbl:'第 3 步', log:'<b>第 3 步 · 关系</b> — 在其中锁定位于右上角的那几块 → [600, 25, 1000, 450]。'},
+      {box:[605,30,1000,420], lbl:'第 4 步', log:'<b>第 4 步 · 收紧</b> — 只取右上角两块花球,排除其余 → [605, 30, 1000, 420]。'},
+      {box:[605,30,1000,420], lbl:'RER 答案', iou:'0.451', log:'<b>RER 答案</b>: [605, 30, 1000, 420]。区域正确但边界偏松,IoU 0.451。'},
+      {box:[815,20,1000,410], lbl:'BDR 第 1 次', iou:'0.913', iouState:'good', log:'<b>BDR 第 1 次精修</b>: 同位置编辑 → [815, 20, 1000, 410],推理文本保持不动,IoU 0.913。'},
+      {box:[815,20,1000,420], lbl:'最终', iou:'0.936', iouState:'good', log:'<b>BDR 第 2 次精修</b>: [815, 20, 1000, 420],IoU 0.936。只改写了坐标,推理文本保持不变。'}
+    ]
+  });
+
+  demos.trn = makeDemo({
+    box:'trn-box', lbl:'trn-lbl', log:'trn-log', iou:'trn-iou', step:'trn-step',
+    play:'trn-play', prev:'trn-prev', next:'trn-next', delay:2300,
+    labels:{play:'▶ 播放', pause:'⏸ 暂停'},
+    extra:(s)=>{
+      const attn = document.getElementById('trn-attn');
+      attn.textContent = s.attn || '';
+      ['trn-t1','trn-t2','trn-t3','trn-t4'].forEach((id,k)=>{
+        const el = document.getElementById(id);
+        el.textContent = s.tokens[k];
+        el.className = 'tok ' + s.tokCls[k];
+      });
+    },
+    steps:[
+      {box:[815,20,1000,420], lbl:'状态', iou:'0.936', iouState:'good', attn:'',
+       tokens:['x₁=815','y₁=20','x₂=1000','y₂=420'], tokCls:['coord','coord','coord','coord'],
+       log:'<b>训练状态</b> — 推理文本固定;坐标 token 保持 [815, 20, 1000, 420],IoU 0.936。'},
+      {box:[815,300,1000,420], lbl:'被破坏', iou:'0.30', iouState:'bad', attn:'',
+       tokens:['x₁=815','y₁=300','x₂=1000','y₂=420'], tokCls:['coord','corrupt','coord','coord'],
+       log:'<b>训练从破坏开始</b>:随机破坏一个坐标 token(y₁: 20 → 300),框的 IoU 降到 0.30。'},
+      {box:[815,300,1000,420], lbl:'被破坏', iou:'0.30', iouState:'bad',
+       attn:'⇄ 移除因果掩码 — 每个 token 都看得见整个状态',
+       tokens:['x₁=815','y₁=300','x₂=1000','y₂=420'], tokCls:['coord','corrupt','coord','coord'],
+       log:'<b>BDR 原位编辑</b>:移除因果掩码后,每个坐标 token 都能关注整个状态,包括描述目标的固定推理文本。'},
+      {box:[815,20,1000,420], lbl:'已修复', iou:'0.936', iouState:'good', attn:'',
+       tokens:['x₁=815','y₁=20','x₂=1000','y₂=420'], tokCls:['coord','fixed-now','coord','coord'],
+       log:'<b>同位置重建</b>:被破坏的 token 重写回 20,其余保持不变,IoU 恢复到 0.936。'},
+      {box:[815,20,1000,420], lbl:'已修复', iou:'0.936', iouState:'good', attn:'',
+       tokens:['x₁=815','y₁=20','x₂=1000','y₂=420'], tokCls:['coord','fixed-now','coord','coord'],
+       log:'<b>训练在 30,969 个受控锚点上重复这一过程</b>,mIoU 从 58.80 提升到 86.19。'}
+    ]
+  });
+
+  document.querySelectorAll('.demo-tab').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('.demo-tab').forEach(x=>x.classList.toggle('active', x === b));
+      document.querySelectorAll('.demo-panel').forEach(p=>p.classList.toggle('active', p.id === 'demo-' + b.dataset.demo));
+      demos.inf.stop(); demos.trn.stop();
+      (b.dataset.demo === 'inf' ? demos.inf : demos.trn).start();
+    });
+  });
+})();
+</script>
+<script>
+  function copyBib(){
+    const text = document.getElementById('bibtex-code').innerText;
+    const btn = document.getElementById('copy-btn');
+    const done = () => { btn.textContent = '已复制 ✓'; btn.classList.add('done');
+      setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('done'); }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else { fallbackCopy(text, done); }
+  }
+  function fallbackCopy(text, done){
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch(e){}
+    document.body.removeChild(ta);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoEvolve: Construct-to-Edit Visual Grounding with Bidirectional State Refinement</title>
+<meta name="description" content="CoEvolve separates visual grounding into explicit state construction (RER) and bidirectional state editing (BDR). With a 9B backbone it matches 241B-scale grounding accuracy. Xi'an Jiaotong University & Aerospace Information Research Institute, CAS.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' rx='18' fill='%233b5bdb'/><rect x='28' y='28' width='44' height='44' rx='8' fill='none' stroke='white' stroke-width='6' stroke-dasharray='10 7'/></svg>">
+<style>
+  :root{
+    --ink:#1f2328;
+    --ink2:#4d545e;
+    --ink3:#878e99;
+    --line:#e4e7ec;
+    --brand:#3b5bdb;
+    --brand-soft:#f2f5ff;
+    --soft:#f6f7f9;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","Noto Sans SC",sans-serif;
+    color:var(--ink);background:#fff;line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  .container{max-width:940px;margin:0 auto;padding:0 22px}
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .lang{position:absolute;top:20px;right:24px;font-size:14px;z-index:10}
+  .lang a{color:var(--ink3);padding:0 2px}
+  .lang a.on{color:var(--brand);font-weight:650}
+
+  header{position:relative;text-align:center;padding:72px 0 6px}
+  h1{
+    font-size:clamp(25px,3.4vw,33px);line-height:1.3;font-weight:750;
+    letter-spacing:-.015em;margin:0 auto 20px;max-width:30ch;
+  }
+  .authors{font-size:16.5px}
+  .authors sup{color:var(--brand);font-weight:700;font-size:11px}
+  .affil{font-size:14.5px;color:var(--ink2);margin-top:3px}
+  .auth-note{font-size:13px;color:var(--ink3);margin-top:8px}
+  .buttons{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+  .btn{
+    display:inline-flex;align-items:center;gap:7px;
+    border:1px solid var(--line);border-radius:10px;background:#fff;
+    padding:8px 16px;font-size:14.5px;font-weight:600;color:var(--ink);
+    transition:border-color .12s;
+  }
+  .btn:hover{text-decoration:none;border-color:#b9c0cc}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:#3452c4}
+  .btn.soon{color:var(--ink3);border-style:dashed;cursor:default}
+  .btn.soon:hover{border-color:var(--line)}
+
+  section{padding:40px 0 4px}
+  h2{
+    text-align:center;font-size:21px;font-weight:700;letter-spacing:-.01em;
+    margin-bottom:18px;
+  }
+  .body-text{font-size:15.5px;color:var(--ink2)}
+  .body-text+.body-text{margin-top:12px}
+  .body-text b{color:var(--ink);font-weight:650}
+  .tldr{
+    background:var(--soft);border-radius:12px;padding:16px 20px;
+    font-size:15.5px;color:var(--ink2);
+  }
+  .tldr b{color:var(--ink)}
+
+  figure{margin:24px 0 8px}
+  figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px}
+  figcaption{font-size:13.5px;color:var(--ink3);line-height:1.65;margin-top:10px}
+  figcaption b{color:var(--ink2);font-weight:650}
+
+  /* demo */
+  .demo-tabs{display:flex;gap:8px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+  .demo-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 16px;font-size:14px;font-weight:600;color:var(--ink2);cursor:pointer}
+  .demo-tab:hover{border-color:#b9c0cc}
+  .demo-tab.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .demo-panel{display:none}
+  .demo-panel.active{display:block}
+  .demo-stage{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+  .demo-img-wrap{position:relative;flex:1 1 380px;min-width:280px}
+  .demo-img-wrap img{width:100%;display:block;border:1px solid var(--line);border-radius:10px}
+  .dbox{position:absolute;border:2.5px solid #d97706;border-radius:3px;pointer-events:none;opacity:0;transition:all .55s cubic-bezier(.4,0,.2,1)}
+  .dbox.show{opacity:1}
+  .dbox.gt{border:2px dashed #16a34a;background:rgba(22,163,74,.06)}
+  .dbox.answer{border-color:#ea580c;background:rgba(234,88,12,.08)}
+  .dbox.edit{border-color:var(--brand);background:rgba(59,91,219,.10)}
+  .dbox.bad{border-color:#dc2626;background:rgba(220,38,38,.08)}
+  .dbox .lbl{position:absolute;top:-22px;left:-2px;font-size:11px;font-weight:700;background:#fff;padding:0 6px;border-radius:4px;line-height:18px;white-space:nowrap;color:var(--ink2)}
+  .demo-side{flex:1 1 300px;min-width:280px}
+  .demo-log{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-height:150px;max-height:230px;overflow-y:auto;font-size:13.5px;line-height:1.6}
+  .demo-log .ln{padding:2px 0;color:var(--ink2);animation:dfade .35s ease}
+  .demo-log .ln b{color:var(--ink)}
+  @keyframes dfade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .demo-iou{display:none;margin-top:10px;font-size:13px;font-weight:700;padding:4px 12px;border-radius:8px;background:var(--brand-soft);color:var(--brand)}
+  .demo-iou.good{background:#dcfce7;color:#15803d}
+  .demo-iou.bad{background:#fee2e2;color:#dc2626}
+  .demo-ctrl{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .dbtn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 13px;font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer}
+  .dbtn:hover{border-color:#b9c0cc}
+  .dbtn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .dbtn.primary:hover{background:#3452c4}
+  .demo-step{font-size:12.5px;color:var(--ink3);margin-left:2px}
+  .tokrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px}
+  .tok{border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink2);background:#fff;transition:all .3s}
+  .tok.fixed{background:var(--soft);color:var(--ink3)}
+  .tok.coord{color:var(--brand);border-color:#c6d0f5;font-weight:600}
+  .tok.corrupt{color:#dc2626;border-color:#f3b4b4;background:#fef2f2;text-decoration:line-through}
+  .tok.fixed-now{background:#dcfce7;border-color:#9fd9c3;color:#15803d;font-weight:700}
+  .attn{font-size:12.5px;color:var(--brand);min-height:18px;margin-bottom:8px}
+
+  .tbl-cap{font-weight:650;font-size:14.5px;margin:28px 0 10px;color:var(--ink)}
+  .tbl-cap small{display:block;font-weight:450;color:var(--ink3);font-size:12.5px;margin-top:2px}
+  #results .tbl-cap:first-of-type{margin-top:0}
+  .tbl-wrap{overflow-x:auto;border-radius:10px}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:440px}
+  thead tr{border-top:2px solid var(--ink);border-bottom:1px solid var(--ink)}
+  tbody tr:last-child{border-bottom:2px solid var(--ink)}
+  tbody tr:not(:last-child){border-bottom:1px solid var(--line)}
+  th,td{padding:8px 12px;text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{font-weight:650}
+  td.params{color:var(--ink3)}
+  tr.ours td{font-weight:700;background:var(--brand-soft)}
+  .foot-note{font-size:13px;color:var(--ink3);margin-top:10px}
+
+  .bib-head{display:flex;justify-content:flex-end;margin-bottom:10px}
+  .copy-btn{
+    border:1px solid var(--line);border-radius:8px;background:#fff;
+    padding:5px 14px;font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;
+  }
+  .copy-btn:hover{border-color:#b9c0cc}
+  .copy-btn.done{color:#0e9f6e;border-color:#9fd9c3}
+  pre.code{
+    background:var(--soft);border:1px solid var(--line);border-radius:10px;
+    padding:18px 22px;font-size:13.5px;line-height:1.7;overflow-x:auto;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    color:#333a44;
+  }
+
+  footer{
+    border-top:1px solid var(--line);margin-top:56px;padding:24px 0 48px;
+    font-size:13.5px;color:var(--ink3);
+    display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;
+  }
+</style>
+</head>
+<body>
+<span class="lang"><a class="on" href="index.html">English</a> · <a href="zh.html">中文</a></span>
+
+<header>
+  <div class="container">
+    <h1>CoEvolve: Construct‑to‑Edit Visual Grounding with Bidirectional State Refinement</h1>
+    <p class="authors">Dongwei Sun<sup>†</sup>, Yujie Zhang<sup>†</sup>, Bowen Yao, Pei Liu, Jing Yao, Xiangyong Cao<sup>*</sup></p>
+    <p class="affil">School of Computer Science and Technology, Xi'an Jiaotong University</p>
+    <p class="affil">Aerospace Information Research Institute, Chinese Academy of Sciences</p>
+    <p class="auth-note">† Co-first authors · * Corresponding author · arXiv:2610.01710</p>
+    <div class="buttons">
+      <a class="btn primary" href="https://arxiv.org/abs/2610.01710" target="_blank" rel="noopener">arXiv</a>
+      <a class="btn" href="https://arxiv.org/pdf/2610.01710" target="_blank" rel="noopener">PDF</a>
+      <a class="btn" href="https://arxiv.org/html/2610.01710v1" target="_blank" rel="noopener">HTML</a>
+      <a class="btn" href="https://sundongwei.github.io/CoEvolve_Project/" target="_blank" rel="noopener">Code</a>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <p class="tldr"><b>TL;DR:</b> CoEvolve separates grounding into two stages. RER constructs an explicit,
+  coarse-to-fine spatial trajectory in which every step commits to a candidate region; BDR then edits the coordinate
+  tokens of that state in place. The 9B model matches the grounding accuracy of models up to 241B parameters.</p>
+
+  <section id="demo">
+    <h2>Interactive demo</h2>
+    <div class="demo-tabs">
+      <button class="demo-tab active" data-demo="inf">① Inference — RER → BDR</button>
+      <button class="demo-tab" data-demo="trn">② Training — corrupt → repair</button>
+    </div>
+
+    <div class="demo-panel active" id="demo-inf">
+      <div class="demo-stage">
+        <div class="demo-img-wrap">
+          <img src="assets/demo_image.png" alt="Plate photo used in the paper's worked example">
+          <div class="dbox gt show" id="inf-gt" style="left:81.5%;top:2%;width:18.5%;height:40%"><span class="lbl" style="color:#15803d">GT</span></div>
+          <div class="dbox" id="inf-box"><span class="lbl" id="inf-lbl"></span></div>
+        </div>
+        <div class="demo-side">
+          <div class="demo-log" id="inf-log"></div>
+          <div><span class="demo-iou" id="inf-iou">IoU —</span></div>
+          <div class="demo-ctrl">
+            <button class="dbtn primary" id="inf-play">▶ Play</button>
+            <button class="dbtn" id="inf-prev">‹ Prev</button>
+            <button class="dbtn" id="inf-next">Next ›</button>
+            <span class="demo-step" id="inf-step"></span>
+          </div>
+        </div>
+      </div>
+      <p class="foot-note" style="margin-top:14px">Real trajectory from the paper (Figure 10): the query "broccoli on top right", RER's five committed regions, and both BDR passes, with coordinates in the paper's [0, 1000] frame.</p>
+    </div>
+
+    <div class="demo-panel" id="demo-trn">
+      <div class="demo-stage">
+        <div class="demo-img-wrap">
+          <img src="assets/demo_image.png" alt="Plate photo: box corrupted and repaired" loading="lazy">
+          <div class="dbox" id="trn-box"><span class="lbl" id="trn-lbl"></span></div>
+        </div>
+        <div class="demo-side">
+          <div class="tokrow" id="trn-tokens">
+            <span class="tok fixed">&lt;refine&gt; reasoning text (fixed)</span>
+            <span class="tok coord" id="trn-t1">x₁=815</span>
+            <span class="tok coord" id="trn-t2">y₁=20</span>
+            <span class="tok coord" id="trn-t3">x₂=1000</span>
+            <span class="tok coord" id="trn-t4">y₂=420</span>
+          </div>
+          <div class="attn" id="trn-attn"></div>
+          <div class="demo-log" id="trn-log"></div>
+          <div><span class="demo-iou" id="trn-iou">IoU —</span></div>
+          <div class="demo-ctrl">
+            <button class="dbtn primary" id="trn-play">▶ Play</button>
+            <button class="dbtn" id="trn-prev">‹ Prev</button>
+            <button class="dbtn" id="trn-next">Next ›</button>
+            <span class="demo-step" id="trn-step"></span>
+          </div>
+        </div>
+      </div>
+      <p class="foot-note" style="margin-top:14px">How BDR is trained: coordinates are deliberately corrupted, and the refiner learns to reconstruct them in place with global context (the causal mask is removed). Over 30,969 controlled anchors, this lifts mIoU from 58.80 to 86.19.</p>
+    </div>
+  </section>
+
+    <section id="abstract">
+    <h2>Abstract</h2>
+    <p class="body-text">Visual grounding localizes an object described by language with a bounding box. Most
+    multimodal grounding models compress target identification, spatial reasoning, and boundary estimation into one
+    terminal prediction. Free-form rationales make reasoning linguistically explicit but do not necessarily expose
+    measurable, editable spatial states. This makes intermediate localization errors difficult to diagnose and
+    correct, allowing incorrect region choices and imprecise boundaries to persist in the final box. Autoregressive
+    re-generation further lacks an explicit mechanism for synchronous state repair.</p>
+    <p class="body-text">We introduce <b>CoEvolve</b>, a construct-to-edit framework that separates grounding into
+    explicit state construction and state editing. Region-Evolution Reinforcement (RER) organizes grounding analysis
+    into a coarse-to-fine semantic–spatial trajectory, with each reasoning step committing to an explicit candidate
+    region. Bidirectional Denoising Refiner (BDR) treats this trajectory as an editable state: bidirectional
+    same-position reconstruction produces a synchronous localization candidate from a fixed observed response, while
+    geometry- and behavior-level supervision teaches BDR to preserve accurate anchors, correct unreliable states, and
+    consolidate reliable improvements.</p>
+    <p class="body-text">Evaluations cover natural-image and remote-sensing grounding. CoEvolve achieves 85.72% mIoU
+    across RefCOCO-family test splits and 76.23% on DIOR-RSVG after domain-specific retraining. Under controlled box
+    corruption, BDR raises mIoU from 58.80% to 86.19%. State-source comparisons further support the complementarity
+    of structured state construction and bidirectional state editing.</p>
+  </section>
+
+  <section id="overview">
+    <h2>How CoEvolve works</h2>
+    <figure>
+      <img src="assets/pipeline.png" alt="CoEvolve overview: (a) RER builds a step-by-step region trajectory; (b) BDR edits coordinate tokens in place" >
+      <figcaption><b>Overview.</b> (a) Region-Evolution Reinforcement (RER) turns grounding analysis into a
+      coarse-to-fine semantic–spatial trajectory; each reasoning step commits to an explicit candidate region
+      (scene → candidate → relation → tighten), trained with format, progressive, and terminal-box rewards.
+      (b) Bidirectional Denoising Refiner (BDR) takes the full response, including the reasoning text, the step
+      boxes, and the final answer, as an editable state, and rewrites coordinate tokens in place through
+      bidirectional same-position reconstruction. Geometry-level supervision determines where coordinates should
+      move, while behavior-level supervision determines whether the current state should be preserved, corrected,
+      or consolidated.</figcaption>
+    </figure>
+    <p class="body-text">A single terminal prediction does not show where an error came from. Because CoEvolve
+    writes down the spatial state at every step, wrong region choices and loose boundaries are visible in the
+    trajectory. BDR can then repair the existing state directly instead of re-generating the whole response; the
+    reasoning text is never modified.</p>
+  </section>
+
+<section id="examples">
+    <h2>Qualitative examples</h2>
+    <figure>
+      <img src="assets/qualitative_natural.png" alt="Qualitative results on the RefCOCO family: boundary correction, crowded-instance repair, relational correction, and high-quality preservation" loading="lazy">
+      <figcaption><b>Natural images (RefCOCO family).</b> Red solid boxes are model predictions, green dashed boxes
+      are annotations; badges report per-example IoU across RER → BDR Pass 1 → Pass 2. From top to bottom: boundary
+      correction (0.267 → 0.982), crowded-instance repair (0.151 → 0.974), relational correction (0.176 → 0.992),
+      and preservation of an already-accurate anchor (0.999).</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/qualitative_remote.png" alt="Qualitative results on DIOR-RSVG: tiny-object repair, relational correction, extent correction, second-pass refinement, and a failure case" loading="lazy">
+      <figcaption><b>Remote sensing (DIOR-RSVG).</b> Tiny-object repair (0.000 → 1.000), relational correction
+      (0.011 → 0.987), extent correction (0.293 → 0.985), and a boundary further improved by the second BDR pass
+      (0.266 → 0.943). The last row is a failure case where refinement moves away from an initially accurate
+      anchor.</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/trajectory_edit.png" alt="A structured RER trajectory and the BDR coordinate-edit matrix for the query broccoli on top right" loading="lazy">
+      <figcaption><b>A complete example</b> ("broccoli on top right"). Left: the five-step RER trajectory with the
+      region committed at each step. Right: the same-position coordinate edits; BDR updates any step or the final
+      answer while the reasoning text stays fixed (amber cells mark edits from the preceding state). Answer IoU
+      improves 0.451 → 0.913 → 0.936.</figcaption>
+    </figure>
+  </section>
+
+  <section id="results">
+    <h2>Results</h2>
+    <p class="tbl-cap" style="margin-top:0">Table 1 · Grounding on the RefCOCO family (Acc@0.5)
+      <small>CoEvolve trains only on RefCOCOg train, without target-dataset fine-tuning. Overall averages all eight splits. ‡ backbone baseline locally reproduced.</small>
+    </p>
+    <div class="tbl-wrap">
+      <table style="min-width:760px">
+        <thead>
+          <tr>
+            <th rowspan="2">Model</th><th rowspan="2">Params</th>
+            <th colspan="3" style="text-align:center">RefCOCO</th>
+            <th colspan="3" style="text-align:center">RefCOCO+</th>
+            <th colspan="2" style="text-align:center">RefCOCOg</th>
+            <th rowspan="2">Overall</th>
+          </tr>
+          <tr>
+            <th>val</th><th>testA</th><th>testB</th><th>val</th><th>testA</th><th>testB</th><th>val</th><th>test</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="ours"><td>CoEvolve (ours)</td><td class="params">9B</td><td>94.4</td><td>95.3</td><td>92.4</td><td>90.7</td><td>93.5</td><td>87.8</td><td>92.6</td><td>92.8</td><td>92.41</td></tr>
+          <tr><td>InternVL3.5-241B-A28B</td><td class="params">241B</td><td>94.1</td><td>96.3</td><td>91.5</td><td>91.6</td><td>94.6</td><td>86.9</td><td>92.0</td><td>92.1</td><td>92.39</td></tr>
+          <tr><td>DeepSeek-VL2-Small</td><td class="params">16B</td><td>93.9</td><td>95.3</td><td>91.3</td><td>89.4</td><td>92.9</td><td>84.8</td><td>92.6</td><td>92.6</td><td>91.60</td></tr>
+          <tr><td>InternVL3-78B</td><td class="params">78B</td><td>93.4</td><td>95.4</td><td>90.3</td><td>90.1</td><td>93.8</td><td>85.3</td><td>91.5</td><td>91.5</td><td>91.41</td></tr>
+          <tr><td>Qwen3-VL-235B-A22B</td><td class="params">235B</td><td>92.9</td><td>94.6</td><td>90.2</td><td>88.6</td><td>92.4</td><td>84.2</td><td>90.3</td><td>90.8</td><td>90.50</td></tr>
+          <tr><td>CogVLM-Grounding-17B</td><td class="params">17B</td><td>92.8</td><td>94.8</td><td>89.0</td><td>88.7</td><td>92.9</td><td>83.4</td><td>89.8</td><td>90.8</td><td>90.28</td></tr>
+          <tr><td>Qwen3.5-9B (backbone) ‡</td><td class="params">9B</td><td>91.5</td><td>93.8</td><td>89.5</td><td>87.7</td><td>91.3</td><td>82.9</td><td>89.7</td><td>89.6</td><td>89.48</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="tbl-cap">Table 2 · Localization at stricter IoU thresholds on five test splits
+      <small>Each cell reports Acc@0.7 / Acc@0.9; aggregate columns are sample-weighted. ‡ locally reproduced; † aggregates reconstructed from reported size groups.</small>
+    </p>
+    <div class="tbl-wrap">
+      <table style="min-width:700px">
+        <thead>
+          <tr>
+            <th rowspan="2">Method</th>
+            <th colspan="2" style="text-align:center">RefCOCO</th>
+            <th colspan="2" style="text-align:center">RefCOCO+</th>
+            <th rowspan="2">RefCOCOg test</th>
+            <th rowspan="2">mIoU</th><th rowspan="2">Acc@0.7</th><th rowspan="2">Acc@0.9</th>
+          </tr>
+          <tr><th>testA</th><th>testB</th><th>testA</th><th>testB</th></tr>
+        </thead>
+        <tbody>
+          <tr class="ours"><td>CoEvolve (ours)</td><td>92.7 / 74.2</td><td>87.1 / 67.8</td><td>90.7 / 73.1</td><td>82.3 / 64.7</td><td>86.9 / 65.2</td><td>85.72</td><td>87.94</td><td>68.64</td></tr>
+          <tr><td>CogVLM-Grounding-17B ‡</td><td>90.6 / 69.2</td><td>83.0 / 61.3</td><td>88.6 / 67.9</td><td>77.3 / 57.7</td><td>85.5 / 64.7</td><td>83.60</td><td>85.31</td><td>64.45</td></tr>
+          <tr><td>Qwen3-VL-8B ‡</td><td>88.8 / 66.3</td><td>81.1 / 58.4</td><td>86.4 / 64.9</td><td>74.8 / 54.0</td><td>83.0 / 61.7</td><td>82.39</td><td>83.09</td><td>61.35</td></tr>
+          <tr><td>Qwen3.5-9B ‡</td><td>88.7 / 65.9</td><td>81.7 / 58.6</td><td>86.4 / 64.5</td><td>75.6 / 54.3</td><td>83.1 / 59.6</td><td>82.16</td><td>83.31</td><td>60.64</td></tr>
+          <tr><td>Qwen3-VL-4B</td><td>88.6 / –</td><td>81.3 / –</td><td>86.0 / –</td><td>73.3 / –</td><td>82.2 / –</td><td>81.74</td><td>82.51</td><td>61.24</td></tr>
+          <tr><td>InternVL3.5-8B ‡</td><td>85.9 / 63.0</td><td>77.5 / 55.0</td><td>83.9 / 61.6</td><td>70.6 / 50.0</td><td>79.3 / 58.6</td><td>79.33</td><td>79.68</td><td>58.02</td></tr>
+          <tr><td>Hi-R1 †</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>79.97</td><td>80.07</td><td>54.84</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure style="margin-top:28px">
+      <img src="assets/correction.png" alt="Controlled box correction on 30,969 deterministic anchors" loading="lazy">
+      <figcaption><b>Controlled box correction</b> on five test splits comprising 30,969 deterministic anchors. Under
+      the same corrupted-anchor inputs, the trained BDR formulation achieves stronger correction performance than
+      autoregressive correction baselines.</figcaption>
+    </figure>
+
+    <p class="tbl-cap">Table 3 · Remote-sensing grounding on DIOR-RSVG
+      <small>RER and BDR are retrained on the DIOR-RSVG training split. † our reproduced native backbone, evaluated without DIOR-RSVG adaptation.</small>
+    </p>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Pr@0.5</th><th>Pr@0.7</th><th>Pr@0.9</th><th>mIoU</th></tr>
+        </thead>
+        <tbody>
+          <tr class="ours"><td>CoEvolve (ours)</td><td>86.20</td><td>76.16</td><td>43.45</td><td>76.23</td></tr>
+          <tr><td>LQVG</td><td>83.41</td><td>75.91</td><td>43.53</td><td>74.02</td></tr>
+          <tr><td>GeoSearcher</td><td>83.20</td><td>72.40</td><td>–</td><td>73.50</td></tr>
+          <tr><td>LPVA</td><td>82.27</td><td>72.25</td><td>39.55</td><td>72.35</td></tr>
+          <tr><td>RSGround-R1</td><td>71.80</td><td>58.70</td><td>–</td><td>63.40</td></tr>
+          <tr><td>InternVL3.5-8B</td><td>64.90</td><td>50.50</td><td>–</td><td>56.90</td></tr>
+          <tr><td>Qwen3.5-9B †</td><td>55.85</td><td>43.15</td><td>18.81</td><td>51.83</td></tr>
+          <tr><td>Qwen3.5-4B</td><td>53.10</td><td>39.40</td><td>–</td><td>49.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="body-text" style="margin-top:16px">Downstream segmentation: prompting a frozen SAM3 with CoEvolve boxes
+    yields 78.19 Macro-8 cIoU across the eight RefCOCO-family splits, without mask fine-tuning.</p>
+  </section>
+
+  <section id="bibtex">
+    <h2>BibTeX</h2>
+    <div class="bib-head"><button class="copy-btn" id="copy-btn" onclick="copyBib()">Copy</button></div>
+    <pre class="code" id="bibtex-code">@article{sun2026coevolve,
+  title   = {CoEvolve: Construct-to-Edit Visual Grounding with
+             Bidirectional State Refinement},
+  author  = {Sun, Dongwei and Zhang, Yujie and Yao, Bowen and
+             Liu, Pei and Yao, Jing and Cao, Xiangyong},
+  journal = {arXiv preprint arXiv:2610.01710},
+  year    = {2026}
+}</pre>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;width:100%">
+    <div>CoEvolve · Xi'an Jiaotong University &amp; Aerospace Information Research Institute, CAS</div>
+    <div><a href="https://arxiv.org/abs/2610.01710" target="_blank" rel="noopener">arXiv:2610.01710</a> · <a href="zh.html">中文版</a></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  function makeDemo(cfg){
+    const $ = id => document.getElementById(id);
+    const box = $(cfg.box), lbl = $(cfg.lbl), log = $(cfg.log), iou = $(cfg.iou),
+          stepEl = $(cfg.step), play = $(cfg.play), prevB = $(cfg.prev), nextB = $(cfg.next);
+    const extra = cfg.extra || (()=>{});
+    let i = -1, timer = null;
+    function show(k){
+      i = Math.max(0, Math.min(k, cfg.steps.length - 1));
+      const s = cfg.steps[i];
+      if(s.box){
+        box.classList.add('show');
+        const [x1,y1,x2,y2] = s.box;
+        box.style.left = x1/10 + '%'; box.style.top = y1/10 + '%';
+        box.style.width = (x2-x1)/10 + '%'; box.style.height = (y2-y1)/10 + '%';
+        box.style.borderColor = s.color || '';
+        box.style.background = s.bg || '';
+      } else { box.classList.remove('show'); }
+      lbl.textContent = s.lbl || '';
+      extra(s, i);
+      while(log.children.length > i + 1) log.removeChild(log.lastChild);
+      while(log.children.length < i + 1){
+        const d = document.createElement('div');
+        d.className = 'ln'; d.innerHTML = cfg.steps[log.children.length].log;
+        log.appendChild(d);
+      }
+      log.scrollTop = log.scrollHeight;
+      if(s.iou){ iou.style.display = 'inline-block'; iou.textContent = 'IoU ' + s.iou; iou.className = 'demo-iou ' + (s.iouState || ''); }
+      else { iou.style.display = 'none'; }
+      stepEl.textContent = (i + 1) + ' / ' + cfg.steps.length;
+    }
+    function stop(){ if(timer){ clearInterval(timer); timer = null; play.textContent = cfg.labels.play; } }
+    function start(){
+      stop();
+      if(i >= cfg.steps.length - 1) show(0);
+      timer = setInterval(()=>{
+        show((i + 1) % cfg.steps.length);
+      }, cfg.delay || 2100);
+      play.textContent = cfg.labels.pause;
+    }
+    play.addEventListener('click', ()=> timer ? stop() : start());
+    prevB.addEventListener('click', ()=>{ stop(); show(i - 1); });
+    nextB.addEventListener('click', ()=>{ stop(); show(i + 1); });
+    show(0);
+    if(cfg.autostart) start();
+    return { stop, start };
+  }
+
+  const demos = {};
+  demos.inf = makeDemo({
+    box:'inf-box', lbl:'inf-lbl', log:'inf-log', iou:'inf-iou', step:'inf-step',
+    play:'inf-play', prev:'inf-prev', next:'inf-next', delay:2100, autostart:true,
+    labels:{play:'▶ Play', pause:'⏸ Pause'},
+    steps:[
+      {log:'<b>Query:</b> "broccoli on top right". Green dashed box = ground truth [815, 20, 1000, 420].'},
+      {box:[0,0,1000,1000], lbl:'Step 1', log:'<b>Step 1 · scene</b> — a plate of food; meat on the left, vegetables on the right → [0, 0, 1000, 1000].'},
+      {box:[600,25,1000,650], lbl:'Step 2', log:'<b>Step 2 · candidate</b> — focus on the right side where the green vegetables are → [600, 25, 1000, 650].'},
+      {box:[600,25,1000,450], lbl:'Step 3', log:'<b>Step 3 · relation</b> — among them, take the ones at the top-right corner → [600, 25, 1000, 450].'},
+      {box:[605,30,1000,420], lbl:'Step 4', log:'<b>Step 4 · tighten</b> — zoom in on the two top-right florets, excluding the rest → [605, 30, 1000, 420].'},
+      {box:[605,30,1000,420], lbl:'RER answer', iou:'0.451', log:'<b>RER answer</b>: [605, 30, 1000, 420]. The region is correct but the box is loose; IoU 0.451.'},
+      {box:[815,20,1000,410], lbl:'BDR pass 1', iou:'0.913', iouState:'good', log:'<b>BDR pass 1</b>: same-position edit → [815, 20, 1000, 410]. The reasoning text is untouched. IoU 0.913.'},
+      {box:[815,20,1000,420], lbl:'Final', iou:'0.936', iouState:'good', log:'<b>BDR pass 2</b>: [815, 20, 1000, 420], IoU 0.936. Only coordinates were rewritten; the reasoning text is unchanged.'}
+    ]
+  });
+
+  demos.trn = makeDemo({
+    box:'trn-box', lbl:'trn-lbl', log:'trn-log', iou:'trn-iou', step:'trn-step',
+    play:'trn-play', prev:'trn-prev', next:'trn-next', delay:2300,
+    labels:{play:'▶ Play', pause:'⏸ Pause'},
+    extra:(s)=>{
+      const attn = document.getElementById('trn-attn');
+      attn.textContent = s.attn || '';
+      ['trn-t1','trn-t2','trn-t3','trn-t4'].forEach((id,k)=>{
+        const el = document.getElementById(id);
+        el.textContent = s.tokens[k];
+        el.className = 'tok ' + s.tokCls[k];
+      });
+    },
+    steps:[
+      {box:[815,20,1000,420], lbl:'state', iou:'0.936', iouState:'good', attn:'',
+       tokens:['x₁=815','y₁=20','x₂=1000','y₂=420'], tokCls:['coord','coord','coord','coord'],
+       log:'<b>Trained state</b>: the reasoning text stays fixed; the coordinate tokens hold [815, 20, 1000, 420]. IoU 0.936.'},
+      {box:[815,300,1000,420], lbl:'corrupted', iou:'0.30', iouState:'bad', attn:'',
+       tokens:['x₁=815','y₁=300','x₂=1000','y₂=420'], tokCls:['coord','corrupt','coord','coord'],
+       log:'<b>Training starts with corruption</b>: a coordinate token is randomly corrupted (y₁: 20 → 300), and the box drops to IoU 0.30.'},
+      {box:[815,300,1000,420], lbl:'corrupted', iou:'0.30', iouState:'bad',
+       attn:'⇄ causal mask removed: every token attends to the whole state',
+       tokens:['x₁=815','y₁=300','x₂=1000','y₂=420'], tokCls:['coord','corrupt','coord','coord'],
+       log:'<b>BDR edits in place</b>: with the causal mask removed, every coordinate token can attend to the entire state, including the reasoning text that describes the target.'},
+      {box:[815,20,1000,420], lbl:'repaired', iou:'0.936', iouState:'good', attn:'',
+       tokens:['x₁=815','y₁=20','x₂=1000','y₂=420'], tokCls:['coord','fixed-now','coord','coord'],
+       log:'<b>Same-position reconstruction</b>: the corrupted token is rewritten to 20 and all other tokens remain unchanged. IoU returns to 0.936.'},
+      {box:[815,20,1000,420], lbl:'repaired', iou:'0.936', iouState:'good', attn:'',
+       tokens:['x₁=815','y₁=20','x₂=1000','y₂=420'], tokCls:['coord','fixed-now','coord','coord'],
+       log:'<b>Training repeats this process</b> over 30,969 controlled anchors; across them, mIoU improves from 58.80 to 86.19.'}
+    ]
+  });
+
+  document.querySelectorAll('.demo-tab').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('.demo-tab').forEach(x=>x.classList.toggle('active', x === b));
+      document.querySelectorAll('.demo-panel').forEach(p=>p.classList.toggle('active', p.id === 'demo-' + b.dataset.demo));
+      demos.inf.stop(); demos.trn.stop();
+      (b.dataset.demo === 'inf' ? demos.inf : demos.trn).start();
+    });
+  });
+})();
+</script>
+<script>
+  function copyBib(){
+    const text = document.getElementById('bibtex-code').innerText;
+    const btn = document.getElementById('copy-btn');
+    const done = () => { btn.textContent = 'Copied ✓'; btn.classList.add('done');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else { fallbackCopy(text, done); }
+  }
+  function fallbackCopy(text, done){
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch(e){}
+    document.body.removeChild(ta);
+  }
+</script>
+</body>
+</html>
